@@ -152,15 +152,16 @@ app.delete("/api/transactions/:id", async (req, res) => {
 async function start() {
   try {
     await checkDatabase();
-    app.listen(PORT, () => {
-      console.log(`Expense Tracker running at http://localhost:${PORT}`);
-    });
+    console.log("Connected to MySQL database successfully.");
   } catch (error) {
-    console.error("\nCould not start Expense Tracker:");
-    console.error(error.message);
-    console.error("\nCheck your .env file, MySQL service, and transaction table.");
-    process.exit(1);
+    console.warn("\n[Database Warning]: Could not connect to MySQL database on startup:");
+    console.warn(error.message);
+    console.warn("If deploying to the cloud (e.g. Render), please configure DB_HOST, DB_USER, DB_PASSWORD, DB_NAME in your Environment Variables.\n");
   }
+
+  app.listen(PORT, () => {
+    console.log(`Expense Tracker running at http://localhost:${PORT}`);
+  });
 }
 
 start();
