@@ -1,0 +1,6 @@
+Income|Salary|50000.0|2026-10-27
+Expense|xerox|300.0|2026-10-27
+Expense|food|5000.0|2026-10-27
+Income|Family|400.0|2026-10-27
+Income|Salary|839.0|2026-10-27
+Expense|Food|789.0|2026-10-27
