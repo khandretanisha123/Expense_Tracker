@@ -161,6 +161,22 @@
 
         <!-- ==================== VIEW 1: DASHBOARD ==================== -->
         <div id="view-dashboard" class="app-view active">
+          <!-- Timeframe / Period Filter Toolbar -->
+          <div class="period-toolbar">
+            <div class="period-toolbar-left">
+              <span class="period-toolbar-label">RECORD TIMEFRAME:</span>
+              <div class="period-segmented" role="tablist" aria-label="Select Record Timeframe">
+                <button class="period-btn active" data-dashboard-period="all" role="tab" aria-selected="true">All Time</button>
+                <button class="period-btn" data-dashboard-period="week" role="tab" aria-selected="false">This Week</button>
+                <button class="period-btn" data-dashboard-period="month" role="tab" aria-selected="false">This Month</button>
+                <button class="period-btn" data-dashboard-period="year" role="tab" aria-selected="false">This Year</button>
+              </div>
+            </div>
+            <div class="period-toolbar-right">
+              <span id="period-active-label" class="period-status-pill">Showing All Records</span>
+            </div>
+          </div>
+
           <!-- Summary Cards Section -->
           <section class="summary-cards-grid" aria-label="Financial Summary Cards">
             <!-- Total Income Card -->
@@ -257,18 +273,113 @@
             </article>
           </section>
 
+          <!-- Weekly, Monthly & Yearly Records Section -->
+          <section class="periodic-summary-grid" aria-label="Weekly Monthly Yearly Records">
+            <!-- Weekly Record Card -->
+            <article class="card period-summary-card">
+              <div class="period-card-header">
+                <div class="period-card-title-wrap">
+                  <span class="period-badge week-badge">Weekly Record</span>
+                  <span id="week-date-range" class="period-dates">Current Week</span>
+                </div>
+                <span class="period-icon">📅</span>
+              </div>
+              <div class="period-card-body">
+                <div class="period-stat-item">
+                  <span class="p-stat-label">Income</span>
+                  <span id="week-income-val" class="p-stat-val text-income">₹0.00</span>
+                </div>
+                <div class="period-stat-item">
+                  <span class="p-stat-label">Expenses</span>
+                  <span id="week-expense-val" class="p-stat-val text-expense">₹0.00</span>
+                </div>
+                <div class="period-stat-item period-stat-highlight">
+                  <span class="p-stat-label">Net Balance</span>
+                  <span id="week-net-val" class="p-stat-val">₹0.00</span>
+                </div>
+              </div>
+              <div class="period-card-footer">
+                <span id="week-tx-count" class="period-foot-text">0 transactions recorded</span>
+              </div>
+            </article>
+
+            <!-- Monthly Record Card -->
+            <article class="card period-summary-card">
+              <div class="period-card-header">
+                <div class="period-card-title-wrap">
+                  <span class="period-badge month-badge">Monthly Record</span>
+                  <span id="month-date-range" class="period-dates">Current Month</span>
+                </div>
+                <span class="period-icon">🗓️</span>
+              </div>
+              <div class="period-card-body">
+                <div class="period-stat-item">
+                  <span class="p-stat-label">Income</span>
+                  <span id="month-income-val" class="p-stat-val text-income">₹0.00</span>
+                </div>
+                <div class="period-stat-item">
+                  <span class="p-stat-label">Expenses</span>
+                  <span id="month-expense-val" class="p-stat-val text-expense">₹0.00</span>
+                </div>
+                <div class="period-stat-item period-stat-highlight">
+                  <span class="p-stat-label">Net Balance</span>
+                  <span id="month-net-val" class="p-stat-val">₹0.00</span>
+                </div>
+              </div>
+              <div class="period-card-footer">
+                <span id="month-tx-count" class="period-foot-text">0 transactions recorded</span>
+              </div>
+            </article>
+
+            <!-- Yearly Record Card -->
+            <article class="card period-summary-card">
+              <div class="period-card-header">
+                <div class="period-card-title-wrap">
+                  <span class="period-badge year-badge">Yearly Record</span>
+                  <span id="year-date-range" class="period-dates">Current Year</span>
+                </div>
+                <span class="period-icon">📊</span>
+              </div>
+              <div class="period-card-body">
+                <div class="period-stat-item">
+                  <span class="p-stat-label">Income</span>
+                  <span id="year-income-val" class="p-stat-val text-income">₹0.00</span>
+                </div>
+                <div class="period-stat-item">
+                  <span class="p-stat-label">Expenses</span>
+                  <span id="year-expense-val" class="p-stat-val text-expense">₹0.00</span>
+                </div>
+                <div class="period-stat-item period-stat-highlight">
+                  <span class="p-stat-label">Net Balance</span>
+                  <span id="year-net-val" class="p-stat-val">₹0.00</span>
+                </div>
+              </div>
+              <div class="period-card-footer">
+                <span id="year-tx-count" class="period-foot-text">0 transactions recorded</span>
+              </div>
+            </article>
+          </section>
+
           <!-- Financial Analytics Grid -->
           <section class="analytics-grid" aria-label="Visual Analytics Charts">
             <!-- Cash Flow / Trend Chart Card -->
             <article class="card chart-card large-chart">
-              <div class="card-header">
+              <div class="card-header chart-header-flex">
                 <div>
                   <h3 class="card-title">Cash Flow & Activity</h3>
-                  <p class="card-subtitle">Income and expense distribution by transaction date</p>
+                  <p class="card-subtitle">Income and expense trends over time</p>
                 </div>
-                <div class="chart-legend-custom">
-                  <span class="legend-item"><span class="legend-dot income-dot"></span>Income</span>
-                  <span class="legend-item"><span class="legend-dot expense-dot"></span>Expense</span>
+                <div class="chart-controls-wrap">
+                  <div class="chart-group-segmented" role="tablist" aria-label="Chart grouping">
+                    <button class="chart-group-btn" data-chart-group="daily">Daily</button>
+                    <button class="chart-group-btn" data-chart-group="weekly">Weekly</button>
+                    <button class="chart-group-btn active" data-chart-group="monthly">Monthly</button>
+                    <button class="chart-group-btn" data-chart-group="yearly">Yearly</button>
+                  </div>
+                  <div class="chart-legend-custom">
+                    <span class="legend-item"><span class="legend-dot income-dot"></span>Income</span>
+                    <span class="legend-item"><span class="legend-dot expense-dot"></span>Expense</span>
+                  </div>
                 </div>
               </div>
               <div class="chart-wrapper">
@@ -340,6 +451,16 @@
                 <div class="select-wrapper">
                   <select id="category-filter-select" aria-label="Filter by category">
                     <option value="all">All Categories</option>
+                  </select>
+                </div>
+
+                <!-- Date Period Filter Dropdown -->
+                <div class="select-wrapper">
+                  <select id="table-period-filter" aria-label="Filter by timeframe">
+                    <option value="all">All Dates</option>
+                    <option value="week">This Week</option>
+                    <option value="month">This Month</option>
+                    <option value="year">This Year</option>
                   </select>
                 </div>
 
@@ -454,6 +575,38 @@
               </div>
               <div id="detailed-category-breakdown" class="detailed-breakdown-container">
                 <!-- Populated via JS -->
+              </div>
+            </article>
+
+            <!-- Detailed Periodic Records Breakdown Card (Full Width) -->
+            <article class="card periodic-table-card" style="grid-column: 1 / -1;">
+              <div class="card-header" style="flex-wrap: wrap; gap: 14px;">
+                <div>
+                  <h3 class="card-title">Periodic Financial Records</h3>
+                  <p class="card-subtitle">Detailed breakdown across Weekly, Monthly, and Yearly intervals</p>
+                </div>
+                <div class="periodic-tab-segmented" role="tablist" aria-label="Breakdown type">
+                  <button class="p-tab-btn active" data-breakdown-tab="monthly">Monthly Records</button>
+                  <button class="p-tab-btn" data-breakdown-tab="weekly">Weekly Records</button>
+                  <button class="p-tab-btn" data-breakdown-tab="yearly">Yearly Records</button>
+                </div>
+              </div>
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Time Interval</th>
+                      <th scope="col" class="text-right">Total Income</th>
+                      <th scope="col" class="text-right">Total Expenses</th>
+                      <th scope="col" class="text-right">Net Savings</th>
+                      <th scope="col" class="text-center">Savings Rate</th>
+                      <th scope="col" class="text-center">Transactions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="periodic-breakdown-tbody">
+                    <!-- Dynamic rows populated via JavaScript -->
+                  </tbody>
+                </table>
               </div>
             </article>
           </div>

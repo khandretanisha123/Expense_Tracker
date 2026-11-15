@@ -96,7 +96,7 @@ app.get("/api/dashboard", async (_req, res) => {
       SELECT id, \`type\`, category, amount, DATE_FORMAT(transaction_date, '%Y-%m-%d') AS transaction_date
       FROM \`transaction\`
       ORDER BY transaction_date DESC, id DESC
-      LIMIT 100
+      LIMIT 1000
     `);
 
     res.json({

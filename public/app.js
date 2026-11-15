@@ -1,6 +1,7 @@
 /**
  * Expense Tracker - Modern Financial Dashboard
  * Senior Frontend Architecture & UI Engine
+ * Features: Complete Weekly, Monthly & Yearly Records & Analytics
  */
 
 (function () {
@@ -11,6 +12,11 @@
     summary: { totalIncome: 0, totalExpenses: 0, balance: 0 },
     categories: [],
     transactions: [],
+    // Timeframe & Grouping States
+    dashboardPeriod: 'all', // 'all' | 'week' | 'month' | 'year'
+    chartGrouping: 'monthly', // 'daily' | 'weekly' | 'monthly' | 'yearly'
+    tablePeriodFilter: 'all', // 'all' | 'week' | 'month' | 'year'
+    breakdownTab: 'monthly', // 'monthly' | 'weekly' | 'yearly'
     // Filter & Pagination State
     searchQuery: '',
     typeFilter: 'all', // 'all' | 'Income' | 'Expense'
@@ -61,6 +67,14 @@
     });
   }
 
+  function parseTxDate(dateString) {
+    if (!dateString) return new Date();
+    const clean = String(dateString).slice(0, 10);
+    const parts = clean.split('-').map(Number);
+    if (parts.length !== 3) return new Date();
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+  }
+
   function getTodayISO() {
     const today = new Date();
     const year = today.getFullYear();
@@ -80,6 +94,48 @@
         default: return match;
       }
     });
+  }
+
+  // ==================== PERIOD CALCULATION HELPERS ====================
+  function getWeekBounds(refDate = new Date()) {
+    const d = new Date(refDate);
+    const day = d.getDay();
+    const diffToMonday = (day === 0 ? -6 : 1) - day;
+    const monday = new Date(d.getFullYear(), d.getMonth(), d.getDate() + diffToMonday, 0, 0, 0, 0);
+    const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6, 23, 59, 59, 999);
+    return { start: monday, end: sunday };
+  }
+
+  function matchPeriod(dateString, period, refDate = new Date()) {
+    if (period === 'all') return true;
+    const txDate = parseTxDate(dateString);
+
+    if (period === 'week') {
+      const { start, end } = getWeekBounds(refDate);
+      return txDate >= start && txDate <= end;
+    }
+
+    if (period === 'month') {
+      return txDate.getFullYear() === refDate.getFullYear() && txDate.getMonth() === refDate.getMonth();
+    }
+
+    if (period === 'year') {
+      return txDate.getFullYear() === refDate.getFullYear();
+    }
+
+    return true;
+  }
+
+  function getWeekNumber(date) {
+    const target = new Date(date.valueOf());
+    const dayNumber = (date.getDay() + 6) % 7;
+    target.setDate(target.getDate() - dayNumber + 3);
+    const firstThursday = target.valueOf();
+    target.setMonth(0, 1);
+    if (target.getDay() !== 4) {
+      target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
+    }
+    return 1 + Math.ceil((firstThursday - target) / 604800000);
   }
 
   // Category Icon Map for visually distinct badges
@@ -128,7 +184,33 @@
     totalCount: document.getElementById('total-count-value'),
     sidebarCount: document.getElementById('sidebar-transaction-count'),
     badgeCount: document.getElementById('transaction-total-badge'),
-    
+
+    // Timeframe Controls
+    dashboardPeriodBtns: document.querySelectorAll('.period-segmented .period-btn'),
+    periodActiveLabel: document.getElementById('period-active-label'),
+
+    // Periodic Summary Cards Elements (Weekly, Monthly, Yearly)
+    weekDateRange: document.getElementById('week-date-range'),
+    weekIncomeVal: document.getElementById('week-income-val'),
+    weekExpenseVal: document.getElementById('week-expense-val'),
+    weekNetVal: document.getElementById('week-net-val'),
+    weekTxCount: document.getElementById('week-tx-count'),
+
+    monthDateRange: document.getElementById('month-date-range'),
+    monthIncomeVal: document.getElementById('month-income-val'),
+    monthExpenseVal: document.getElementById('month-expense-val'),
+    monthNetVal: document.getElementById('month-net-val'),
+    monthTxCount: document.getElementById('month-tx-count'),
+
+    yearDateRange: document.getElementById('year-date-range'),
+    yearIncomeVal: document.getElementById('year-income-val'),
+    yearExpenseVal: document.getElementById('year-expense-val'),
+    yearNetVal: document.getElementById('year-net-val'),
+    yearTxCount: document.getElementById('year-tx-count'),
+
+    // Chart Grouping Controls
+    chartGroupBtns: document.querySelectorAll('.chart-group-segmented .chart-group-btn'),
+
     // Live date & Refresh
     liveDateText: document.getElementById('live-date-text'),
     refreshBtn: document.getElementById('refresh-btn'),
@@ -141,6 +223,7 @@
     clearSearchBtn: document.getElementById('clear-search-btn'),
     segmentedBtns: document.querySelectorAll('.filter-segmented .seg-btn'),
     categoryFilterSelect: document.getElementById('category-filter-select'),
+    tablePeriodFilter: document.getElementById('table-period-filter'),
     sortOrderSelect: document.getElementById('sort-order-select'),
 
     // Pagination
@@ -195,6 +278,10 @@
     categorySummaryList: document.getElementById('category-summary-list'),
     detailedCategoryBreakdown: document.getElementById('detailed-category-breakdown'),
 
+    // Periodic Breakdown Table in Analytics
+    periodicBreakdownTbody: document.getElementById('periodic-breakdown-tbody'),
+    breakdownTabBtns: document.querySelectorAll('.periodic-tab-segmented .p-tab-btn'),
+
     // Mobile Sidebar
     sidebar: document.getElementById('sidebar'),
     sidebarBackdrop: document.getElementById('sidebar-backdrop'),
@@ -233,7 +320,7 @@
     } else if (type === 'error') {
       iconSvg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
     } else {
-      iconSvg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`;
+      iconSvg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="8"/></svg>`;
     }
 
     toast.innerHTML = `
@@ -269,7 +356,6 @@
     function step(currentTime) {
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      // Easing out cubic
       const ease = 1 - Math.pow(1 - progress, 3);
       const current = start + diff * ease;
 
@@ -327,18 +413,51 @@
     }
   }
 
+  // ==================== PERIODIC METRICS CALCULATOR ====================
+  function calculatePeriodMetrics(period) {
+    const now = new Date();
+    const filtered = state.transactions.filter(t => matchPeriod(t.transaction_date, period, now));
+
+    let income = 0;
+    let expense = 0;
+    filtered.forEach(t => {
+      const amt = Number(t.amount) || 0;
+      if (t.type === 'Income') income += amt;
+      else if (t.type === 'Expense') expense += amt;
+    });
+
+    return {
+      income,
+      expense,
+      balance: income - expense,
+      count: filtered.length
+    };
+  }
+
   // ==================== UI RENDERING ====================
   function updateDashboardUI() {
-    // 1. Render Summary Cards with Animated Counters
-    const incomeNum = state.summary.totalIncome;
-    const expenseNum = state.summary.totalExpenses;
-    const balanceNum = state.summary.balance;
-    const countNum = state.transactions.length;
+    // 1. Render Summary Cards based on Selected Dashboard Timeframe
+    let activeSummary = state.summary;
+    let countNum = state.transactions.length;
 
-    animateValue(dom.totalIncome, 0, incomeNum, 700, true);
-    animateValue(dom.totalExpenses, 0, expenseNum, 700, true);
-    animateValue(dom.netBalance, 0, balanceNum, 700, true);
-    animateValue(dom.totalCount, 0, countNum, 700, false);
+    if (state.dashboardPeriod !== 'all') {
+      const periodData = calculatePeriodMetrics(state.dashboardPeriod);
+      activeSummary = {
+        totalIncome: periodData.income,
+        totalExpenses: periodData.expense,
+        balance: periodData.balance
+      };
+      countNum = periodData.count;
+    }
+
+    const incomeNum = activeSummary.totalIncome;
+    const expenseNum = activeSummary.totalExpenses;
+    const balanceNum = activeSummary.balance;
+
+    animateValue(dom.totalIncome, 0, incomeNum, 600, true);
+    animateValue(dom.totalExpenses, 0, expenseNum, 600, true);
+    animateValue(dom.netBalance, 0, balanceNum, 600, true);
+    animateValue(dom.totalCount, 0, countNum, 600, false);
 
     // Update Balance badge & styling
     if (balanceNum >= 0) {
@@ -351,21 +470,80 @@
       dom.balanceBadge.textContent = 'Deficit';
     }
 
-    // Update Counts
-    if (dom.sidebarCount) dom.sidebarCount.textContent = countNum;
-    if (dom.badgeCount) dom.badgeCount.textContent = `${countNum} Record${countNum === 1 ? '' : 's'}`;
+    // Update Timeframe Indicator Text
+    if (dom.periodActiveLabel) {
+      const labels = {
+        all: 'Showing All Records (All Time)',
+        week: 'Showing Records for This Week',
+        month: 'Showing Records for This Month',
+        year: 'Showing Records for This Year'
+      };
+      dom.periodActiveLabel.textContent = labels[state.dashboardPeriod] || 'Showing Records';
+    }
 
-    // 2. Populate Category Filter Dropdown
+    // Update Counts
+    if (dom.sidebarCount) dom.sidebarCount.textContent = state.transactions.length;
+    if (dom.badgeCount) dom.badgeCount.textContent = `${state.transactions.length} Record${state.transactions.length === 1 ? '' : 's'}`;
+
+    // 2. Render 3-Card Periodic Summary (Weekly, Monthly, Yearly)
+    renderPeriodicCards();
+
+    // 3. Populate Category Filter Dropdown
     updateCategoryFilterDropdown();
 
-    // 3. Render Table
+    // 4. Render Table
     renderTransactionsTable();
 
-    // 4. Render Charts
+    // 5. Render Charts
     renderCharts();
 
-    // 5. Render Detailed Category Breakdown List
+    // 6. Render Detailed Category Breakdown List
     renderCategoryBreakdownList();
+
+    // 7. Render Periodic Breakdown Ledger in Analytics
+    renderPeriodicBreakdownTable();
+  }
+
+  // ==================== PERIODIC CARDS (WEEKLY, MONTHLY, YEARLY) ====================
+  function renderPeriodicCards() {
+    const now = new Date();
+
+    // 1. Weekly Record
+    const weekData = calculatePeriodMetrics('week');
+    const { start: weekStart, end: weekEnd } = getWeekBounds(now);
+    const weekStartStr = weekStart.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+    const weekEndStr = weekEnd.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+    if (dom.weekDateRange) dom.weekDateRange.textContent = `${weekStartStr} – ${weekEndStr}`;
+    if (dom.weekIncomeVal) dom.weekIncomeVal.textContent = formatINR(weekData.income);
+    if (dom.weekExpenseVal) dom.weekExpenseVal.textContent = formatINR(weekData.expense);
+    if (dom.weekNetVal) {
+      dom.weekNetVal.textContent = formatINR(weekData.balance);
+      dom.weekNetVal.style.color = weekData.balance >= 0 ? 'var(--income-dark)' : 'var(--expense-dark)';
+    }
+    if (dom.weekTxCount) dom.weekTxCount.textContent = `${weekData.count} transaction${weekData.count === 1 ? '' : 's'} recorded`;
+
+    // 2. Monthly Record
+    const monthData = calculatePeriodMetrics('month');
+    const monthStr = now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+    if (dom.monthDateRange) dom.monthDateRange.textContent = monthStr;
+    if (dom.monthIncomeVal) dom.monthIncomeVal.textContent = formatINR(monthData.income);
+    if (dom.monthExpenseVal) dom.monthExpenseVal.textContent = formatINR(monthData.expense);
+    if (dom.monthNetVal) {
+      dom.monthNetVal.textContent = formatINR(monthData.balance);
+      dom.monthNetVal.style.color = monthData.balance >= 0 ? 'var(--income-dark)' : 'var(--expense-dark)';
+    }
+    if (dom.monthTxCount) dom.monthTxCount.textContent = `${monthData.count} transaction${monthData.count === 1 ? '' : 's'} recorded`;
+
+    // 3. Yearly Record
+    const yearData = calculatePeriodMetrics('year');
+    if (dom.yearDateRange) dom.yearDateRange.textContent = `Year ${now.getFullYear()}`;
+    if (dom.yearIncomeVal) dom.yearIncomeVal.textContent = formatINR(yearData.income);
+    if (dom.yearExpenseVal) dom.yearExpenseVal.textContent = formatINR(yearData.expense);
+    if (dom.yearNetVal) {
+      dom.yearNetVal.textContent = formatINR(yearData.balance);
+      dom.yearNetVal.style.color = yearData.balance >= 0 ? 'var(--income-dark)' : 'var(--expense-dark)';
+    }
+    if (dom.yearTxCount) dom.yearTxCount.textContent = `${yearData.count} transaction${yearData.count === 1 ? '' : 's'} recorded`;
   }
 
   function updateCategoryFilterDropdown() {
@@ -413,6 +591,12 @@
     // Filter by Category
     if (state.categoryFilter !== 'all') {
       list = list.filter(item => item.category === state.categoryFilter);
+    }
+
+    // Filter by Date Timeframe
+    if (state.tablePeriodFilter !== 'all') {
+      const now = new Date();
+      list = list.filter(item => matchPeriod(item.transaction_date, state.tablePeriodFilter, now));
     }
 
     // Sort
@@ -565,25 +749,47 @@
     }
     emptyState?.classList.add('hidden');
 
-    // Group transactions by date
-    const dateMap = {};
-    const sortedTx = [...state.transactions].sort((a, b) => new Date(a.transaction_date) - new Date(b.transaction_date));
+    const grouping = state.chartGrouping; // 'daily' | 'weekly' | 'monthly' | 'yearly'
+    const groupedMap = new Map();
+
+    const sortedTx = [...state.transactions].sort((a, b) => {
+      return new Date(a.transaction_date).getTime() - new Date(b.transaction_date).getTime();
+    });
 
     sortedTx.forEach(tx => {
-      const d = formatDateDisplay(tx.transaction_date);
-      if (!dateMap[d]) {
-        dateMap[d] = { income: 0, expense: 0 };
-      }
-      if (tx.type === 'Income') {
-        dateMap[d].income += Number(tx.amount) || 0;
+      const d = parseTxDate(tx.transaction_date);
+      let key = '';
+
+      if (grouping === 'daily') {
+        key = formatDateDisplay(tx.transaction_date);
+      } else if (grouping === 'weekly') {
+        const weekNum = getWeekNumber(d);
+        const { start } = getWeekBounds(d);
+        const startStr = start.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+        key = `W${weekNum} (${startStr})`;
+      } else if (grouping === 'yearly') {
+        key = `${d.getFullYear()}`;
       } else {
-        dateMap[d].expense += Number(tx.amount) || 0;
+        // Default: 'monthly'
+        key = d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+      }
+
+      if (!groupedMap.has(key)) {
+        groupedMap.set(key, { income: 0, expense: 0 });
+      }
+
+      const item = groupedMap.get(key);
+      const amt = Number(tx.amount) || 0;
+      if (tx.type === 'Income') {
+        item.income += amt;
+      } else {
+        item.expense += amt;
       }
     });
 
-    const labels = Object.keys(dateMap);
-    const incomeData = labels.map(l => dateMap[l].income);
-    const expenseData = labels.map(l => dateMap[l].expense);
+    const labels = Array.from(groupedMap.keys());
+    const incomeData = labels.map(l => groupedMap.get(l).income);
+    const expenseData = labels.map(l => groupedMap.get(l).expense);
 
     if (cashflowChart) cashflowChart.destroy();
 
@@ -598,7 +804,7 @@
             backgroundColor: 'rgba(16, 185, 129, 0.85)',
             hoverBackgroundColor: '#059669',
             borderRadius: 6,
-            barThickness: labels.length > 8 ? undefined : 20
+            barThickness: labels.length > 8 ? undefined : 24
           },
           {
             label: 'Expense (₹)',
@@ -606,7 +812,7 @@
             backgroundColor: 'rgba(239, 68, 68, 0.85)',
             hoverBackgroundColor: '#DC2626',
             borderRadius: 6,
-            barThickness: labels.length > 8 ? undefined : 20
+            barThickness: labels.length > 8 ? undefined : 24
           }
         ]
       },
@@ -655,7 +861,7 @@
       dom.categorySummaryList.innerHTML = '<p style="font-size: 0.8rem; color: var(--slate-400); text-align: center; padding: 10px;">No expense breakdown available.</p>';
       return;
     }
-    emptyState?.classList.add('hidden');
+    emptyState?.classList.remove('hidden');
 
     const labels = state.categories.map(c => c.category);
     const dataValues = state.categories.map(c => Number(c.total) || 0);
@@ -769,6 +975,92 @@
         </div>
       `;
     }).join('');
+  }
+
+  // ==================== PERIODIC BREAKDOWN TABLE (REPORTS VIEW) ====================
+  function renderPeriodicBreakdownTable() {
+    const tbody = dom.periodicBreakdownTbody;
+    if (!tbody) return;
+
+    if (state.transactions.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty-state text-center" style="padding: 30px;">No historical records available to aggregate.</td></tr>';
+      return;
+    }
+
+    const tab = state.breakdownTab; // 'monthly' | 'weekly' | 'yearly'
+    const groups = new Map();
+
+    const sortedTx = [...state.transactions].sort((a, b) => {
+      return new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime();
+    });
+
+    sortedTx.forEach(tx => {
+      const d = parseTxDate(tx.transaction_date);
+      let key = '';
+
+      if (tab === 'weekly') {
+        const weekNum = getWeekNumber(d);
+        const { start, end } = getWeekBounds(d);
+        const sStr = start.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+        const eStr = end.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+        key = `Week ${weekNum} (${sStr} – ${eStr})`;
+      } else if (tab === 'yearly') {
+        key = `Year ${d.getFullYear()}`;
+      } else {
+        // 'monthly'
+        key = d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+      }
+
+      if (!groups.has(key)) {
+        groups.set(key, { income: 0, expense: 0, count: 0 });
+      }
+
+      const g = groups.get(key);
+      g.count += 1;
+      const amt = Number(tx.amount) || 0;
+      if (tx.type === 'Income') g.income += amt;
+      else g.expense += amt;
+    });
+
+    const rowsHTML = Array.from(groups.keys()).map(label => {
+      const { income, expense, count } = groups.get(label);
+      const net = income - expense;
+      let savingsRate = 0;
+      let rateBadgeClass = 'rate-neutral';
+
+      if (income > 0) {
+        savingsRate = Math.round((net / income) * 100);
+        if (savingsRate >= 20) rateBadgeClass = 'rate-positive';
+        else if (savingsRate >= 0) rateBadgeClass = 'rate-neutral';
+        else rateBadgeClass = 'rate-negative';
+      } else if (expense > 0) {
+        savingsRate = -100;
+        rateBadgeClass = 'rate-negative';
+      }
+
+      return `
+        <tr>
+          <td><strong>${escapeHTML(label)}</strong></td>
+          <td class="text-right"><span class="amount-text amount-income">+${formatINR(income)}</span></td>
+          <td class="text-right"><span class="amount-text amount-expense">−${formatINR(expense)}</span></td>
+          <td class="text-right">
+            <span class="amount-text ${net >= 0 ? 'amount-income' : 'amount-expense'}">
+              ${net >= 0 ? '+' : ''}${formatINR(net)}
+            </span>
+          </td>
+          <td class="text-center">
+            <span class="savings-rate-pill ${rateBadgeClass}">
+              ${savingsRate >= 0 ? `${savingsRate}%` : `${savingsRate}%`}
+            </span>
+          </td>
+          <td class="text-center">
+            <span class="badge">${count} Record${count === 1 ? '' : 's'}</span>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    tbody.innerHTML = rowsHTML;
   }
 
   // ==================== MODAL LOGIC & FORM VALIDATION ====================
@@ -983,7 +1275,6 @@
       dom.viewDashboard.classList.remove('hidden');
       dom.viewTransactions.classList.add('hidden');
       dom.viewAnalytics.classList.add('hidden');
-      // If table was moved, return it to dashboard
       const tableCard = document.querySelector('.table-card');
       if (tableCard && !dom.viewDashboard.contains(tableCard)) {
         dom.viewDashboard.appendChild(tableCard);
@@ -994,7 +1285,6 @@
       dom.viewDashboard.classList.add('hidden');
       dom.viewTransactions.classList.remove('hidden');
       dom.viewAnalytics.classList.add('hidden');
-      // Mount table card inside transactions view
       const tableCard = document.querySelector('.table-card');
       if (tableCard && dom.transactionsViewMount) {
         dom.transactionsViewMount.appendChild(tableCard);
@@ -1007,9 +1297,9 @@
       dom.viewAnalytics.classList.remove('hidden');
       renderDetailedComparisonChart();
       renderCategoryBreakdownList();
+      renderPeriodicBreakdownTable();
     }
 
-    // Close mobile sidebar if open
     closeMobileSidebar();
   }
 
@@ -1028,6 +1318,40 @@
   function setupEventListeners() {
     // Refresh button
     dom.refreshBtn.addEventListener('click', fetchDashboardData);
+
+    // Dashboard Timeframe Selector Buttons (All Time / This Week / This Month / This Year)
+    dom.dashboardPeriodBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        dom.dashboardPeriodBtns.forEach(b => {
+          b.classList.remove('active');
+          b.setAttribute('aria-selected', 'false');
+        });
+        btn.classList.add('active');
+        btn.setAttribute('aria-selected', 'true');
+        state.dashboardPeriod = btn.dataset.dashboardPeriod;
+        updateDashboardUI();
+      });
+    });
+
+    // Chart Grouping Switcher (Daily / Weekly / Monthly / Yearly)
+    dom.chartGroupBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        dom.chartGroupBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.chartGrouping = btn.dataset.chartGroup;
+        renderCashflowChart();
+      });
+    });
+
+    // Periodic Breakdown Tab Switcher in Analytics (Monthly / Weekly / Yearly)
+    dom.breakdownTabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        dom.breakdownTabBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.breakdownTab = btn.dataset.breakdownTab;
+        renderPeriodicBreakdownTable();
+      });
+    });
 
     // Modal Triggers
     dom.openAddModalBtn.addEventListener('click', () => openAddModal('Expense'));
@@ -1115,6 +1439,15 @@
       renderTransactionsTable();
     });
 
+    // Table Timeframe Period Filter (All / Week / Month / Year)
+    if (dom.tablePeriodFilter) {
+      dom.tablePeriodFilter.addEventListener('change', () => {
+        state.tablePeriodFilter = dom.tablePeriodFilter.value;
+        state.currentPage = 1;
+        renderTransactionsTable();
+      });
+    }
+
     // Sort Order Dropdown
     dom.sortOrderSelect.addEventListener('change', () => {
       state.sortOrder = dom.sortOrderSelect.value;
@@ -1188,4 +1521,3 @@
   }
 
 })();
-
