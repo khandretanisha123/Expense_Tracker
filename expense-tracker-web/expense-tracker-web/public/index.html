@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Expense Tracker Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand-mark">₹</div>
+      <h1>Expense<span>Track</span></h1>
+      <p class="sidebar-caption">PERSONAL FINANCE</p>
+      <nav>
+        <a class="nav-link active" href="#dashboard">▦ &nbsp; Dashboard</a>
+        <a class="nav-link" href="#transactions">↕ &nbsp; Transactions</a>
+        <a class="nav-link" href="#add-transaction">＋ &nbsp; Add transaction</a>
+      </nav>
+      <div class="sidebar-note">
+        <span class="note-dot"></span>
+        Connected to your local MySQL database
+      </div>
+    </aside>
+
+    <main class="main-content" id="dashboard">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">YOUR MONEY, AT A GLANCE</p>
+          <h2>Dashboard</h2>
+          <p class="subheading">Welcome back. Here's your financial overview.</p>
+        </div>
+        <button class="button button-light" id="refresh-button" type="button">↻ Refresh data</button>
+      </header>
+
+      <div id="status-message" class="status-message" role="status" aria-live="polite"></div>
+
+      <section class="summary-grid" aria-label="Financial summary">
+        <article class="summary-card income-card">
+          <div class="card-top"><span>Total income</span><span class="icon-circle">↗</span></div>
+          <p class="summary-value" id="total-income">₹0.00</p>
+          <p class="card-foot">All recorded income</p>
+        </article>
+        <article class="summary-card expense-card">
+          <div class="card-top"><span>Total expenses</span><span class="icon-circle">↘</span></div>
+          <p class="summary-value" id="total-expenses">₹0.00</p>
+          <p class="card-foot">All recorded expenses</p>
+        </article>
+        <article class="summary-card balance-card">
+          <div class="card-top"><span>Current balance</span><span class="icon-circle">₹</span></div>
+          <p class="summary-value" id="current-balance">₹0.00</p>
+          <p class="card-foot">Income minus expenses</p>
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <article class="panel" id="add-transaction">
+          <div class="panel-heading">
+            <div><p class="eyebrow">KEEP IT UP TO DATE</p><h3>Add transaction</h3></div>
+            <span class="heading-icon">＋</span>
+          </div>
+          <form id="transaction-form">
+            <label for="type">Transaction type</label>
+            <select id="type" name="type" required>
+              <option value="Expense">Expense</option>
+              <option value="Income">Income</option>
+            </select>
+
+            <label for="category">Category</label>
+            <input id="category" name="category" type="text" maxlength="100"
+                   placeholder="e.g. Food, Salary, Travel" required>
+
+            <label for="amount">Amount (₹)</label>
+            <input id="amount" name="amount" type="number" min="0.01" max="9999999999"
+                   step="0.01" placeholder="0.00" required>
+
+            <label for="transaction_date">Date</label>
+            <input id="transaction_date" name="transaction_date" type="date" required>
+
+            <button class="button button-primary full-width" type="submit">＋ Save transaction</button>
+            <p class="form-help">The transaction will be saved to your MySQL database.</p>
+          </form>
+        </article>
+
+        <article class="panel" id="category-report">
+          <div class="panel-heading">
+            <div><p class="eyebrow">WHERE IT GOES</p><h3>Expenses by category</h3></div>
+            <span class="heading-icon">◔</span>
+          </div>
+          <div id="category-list" class="category-list">
+            <p class="empty-state">Loading categories…</p>
+          </div>
+        </article>
+      </section>
+
+      <section class="panel transactions-panel" id="transactions">
+        <div class="panel-heading transaction-heading">
+          <div><p class="eyebrow">LATEST ACTIVITY</p><h3>Transactions</h3></div>
+          <span class="table-count" id="transaction-count">0 records</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Category</th><th>Type</th><th>Date</th><th class="amount-column">Amount</th><th>Action</th></tr>
+            </thead>
+            <tbody id="transaction-table-body">
+              <tr><td colspan="5" class="empty-state">Loading transactions…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="table-note">Showing up to 100 most recent transactions.</p>
+      </section>
+      <footer>ExpenseTrack · Built with HTML, CSS, JavaScript, Node.js and MySQL</footer>
+    </main>
+  </div>
+</body>
+</html>

@@ -1,5 +1,4 @@
 
-
 import java.time.LocalDate;
 
 public class Transaction {
@@ -8,7 +7,7 @@ public class Transaction {
     double amount;
     LocalDate date;
 
-    // For creating a new transaction
+    // Constructor
     public Transaction(String type, String category, double amount) {
         this.type = type;
         this.category = category;
@@ -16,15 +15,7 @@ public class Transaction {
         this.date = LocalDate.now();
     }
 
-    // For loading a saved transaction
-    public Transaction(String type, String category,
-                       double amount, LocalDate date) {
-        this.type = type;
-        this.category = category;
-        this.amount = amount;
-        this.date = date;
-    }
-
+    // Display transaction details
     public void display() {
         System.out.println("Type: " + type);
         System.out.println("Category: " + category);
@@ -32,4 +23,5 @@ public class Transaction {
         System.out.println("Date: " + date);
     }
 }
+
 
