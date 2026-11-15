@@ -436,6 +436,7 @@
 
       dom.passwordChecklistBox.classList.add('hidden');
       dom.authSubmitText.textContent = 'Sign In';
+      dom.authUserIdInput.placeholder = 'Enter your User ID (e.g. john_doe)';
       dom.authIdHint.textContent = 'Enter your unique registered User ID.';
       dom.authSwitchNote.innerHTML = 'New user? Click <strong>Create Account</strong> above to register.';
     } else {
@@ -446,6 +447,7 @@
 
       dom.passwordChecklistBox.classList.remove('hidden');
       dom.authSubmitText.textContent = 'Create Account';
+      dom.authUserIdInput.placeholder = 'Choose a User ID (e.g. john_doe or alex24)';
       dom.authIdHint.textContent = 'Choose a unique User ID (3–50 characters, letters & numbers).';
       dom.authSwitchNote.innerHTML = 'Already have an account? Click <strong>Sign In</strong> above to log in.';
       validatePasswordLive(dom.authPasswordInput.value || '');
