@@ -1990,6 +1990,293 @@ body {
   color: var(--slate-600);
 }
 
+/* ==================== AUTHENTICATION OVERLAY ==================== */
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at 50% 20%, rgba(16, 185, 129, 0.12) 0%, rgba(17, 24, 39, 0.95) 100%), #111827;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.auth-card {
+  background: #FFFFFF;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  width: 100%;
+  max-width: 440px;
+  padding: 32px 28px;
+  border: 1px solid var(--slate-200);
+  animation: scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+.auth-brand {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.auth-brand-icon {
+  width: 52px;
+  height: 52px;
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  margin: 0 auto 12px;
+  box-shadow: 0 8px 16px rgba(16, 185, 129, 0.35);
+}
+
+.auth-brand-title {
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: var(--slate-900);
+  letter-spacing: -0.02em;
+}
+
+.auth-brand-subtitle {
+  font-size: 0.825rem;
+  color: var(--slate-500);
+  margin-top: 4px;
+}
+
+.auth-tabs {
+  display: flex;
+  background: var(--slate-100);
+  border: 1px solid var(--slate-200);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  margin-bottom: 22px;
+}
+
+.auth-tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--slate-600);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-family: var(--font-family);
+  text-align: center;
+}
+
+.auth-tab.active {
+  background: #FFFFFF;
+  color: var(--slate-900);
+  box-shadow: var(--shadow-sm);
+  font-weight: 700;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.auth-field-hint {
+  font-size: 0.72rem;
+  color: var(--slate-400);
+  margin-top: 3px;
+}
+
+.password-input-wrap {
+  position: relative;
+}
+
+.password-input-wrap input {
+  padding-right: 42px !important;
+}
+
+.toggle-password-btn {
+  position: absolute;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: var(--slate-400);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toggle-password-btn:hover {
+  color: var(--slate-700);
+}
+
+/* Password Requirements Checklist */
+.password-checklist-box {
+  background: var(--slate-50);
+  border: 1px solid var(--slate-200);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.checklist-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--slate-700);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.checklist-items {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.req-item {
+  font-size: 0.78rem;
+  color: var(--slate-500);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: color var(--transition-fast);
+}
+
+.req-bullet {
+  font-weight: 800;
+  font-size: 0.85rem;
+  width: 14px;
+  display: inline-block;
+  color: var(--slate-400);
+}
+
+.req-item.valid {
+  color: var(--income-dark);
+  font-weight: 600;
+}
+
+.req-item.valid .req-bullet {
+  color: var(--income);
+}
+
+.req-item.invalid .req-bullet {
+  color: var(--expense);
+}
+
+.auth-submit-btn {
+  padding: 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.auth-footer-note {
+  font-size: 0.78rem;
+  text-align: center;
+  color: var(--slate-500);
+  margin-top: 4px;
+}
+
+.auth-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #FFFFFF;
+  border-radius: var(--radius-full);
+  animation: spin-icon 0.8s linear infinite;
+}
+
+/* User Profile & Logout Styles */
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 6px;
+  position: relative;
+}
+
+.logout-icon-btn {
+  background: transparent;
+  border: none;
+  color: var(--slate-400);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  transition: all var(--transition-fast);
+}
+
+.logout-icon-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--expense);
+}
+
+.topbar-user-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--slate-100);
+  border: 1px solid var(--slate-200);
+  padding: 4px 10px 4px 6px;
+  border-radius: var(--radius-full);
+}
+
+.topbar-user-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+  color: #FFFFFF;
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.topbar-user-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--slate-800);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-logout-btn {
+  background: transparent;
+  border: none;
+  color: var(--slate-400);
+  cursor: pointer;
+  padding: 3px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition-fast);
+}
+
+.topbar-logout-btn:hover {
+  color: var(--expense);
+}
+
 /* ==================== RESPONSIVE BREAKPOINTS ==================== */
 @media (max-width: 1200px) {
   .summary-cards-grid {

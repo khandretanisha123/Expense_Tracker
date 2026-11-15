@@ -3,6 +3,7 @@ require("dotenv").config();
 const express = require("express");
 const mysql = require("mysql2/promise");
 const path = require("path");
+const crypto = require("crypto");
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -21,16 +22,67 @@ const pool = mysql.createPool({
   decimalNumbers: true
 });
 
+// Password Hashing and Verification via Native Crypto
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, "sha512").toString("hex");
+  return `${salt}:${hash}`;
+}
+
+function verifyPassword(password, stored) {
+  if (!stored || !stored.includes(":")) return false;
+  const [salt, key] = stored.split(":");
+  if (!salt || !key) return false;
+  const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, "sha512").toString("hex");
+  return crypto.timingSafeEqual(Buffer.from(key, "hex"), Buffer.from(hash, "hex"));
+}
+
+function validateUserId(id) {
+  const cleanId = String(id || "").trim();
+  if (!cleanId) {
+    return "User ID is required.";
+  }
+  if (cleanId.length < 3 || cleanId.length > 50) {
+    return "User ID must be between 3 and 50 characters.";
+  }
+  if (!/^[A-Za-z0-9_.-]+$/.test(cleanId)) {
+    return "User ID can only contain letters, numbers, dots, hyphens, and underscores.";
+  }
+  return null;
+}
+
+function validatePassword(password) {
+  if (!password || typeof password !== "string") {
+    return "Password is required.";
+  }
+  if (password.length < 8) {
+    return "Password must be at least 8 characters long.";
+  }
+  if (!/[A-Z]/.test(password)) {
+    return "Password must contain at least one uppercase letter (A-Z).";
+  }
+  if (!/[a-z]/.test(password)) {
+    return "Password must contain at least one lowercase letter (a-z).";
+  }
+  if (!/[0-9]/.test(password)) {
+    return "Password must contain at least one number (0-9).";
+  }
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(password)) {
+    return "Password must contain at least one special symbol (e.g. ! @ # $ % & *).";
+  }
+  return null;
+}
+
 async function checkDatabase() {
-  // Uses the existing table if it is already present.
-  // Creates a compatible table only if no transaction table exists.
+  // 1. Transaction Table
   await pool.query(`
     CREATE TABLE IF NOT EXISTS \`transaction\` (
       id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
       \`type\` ENUM('Income', 'Expense') NOT NULL,
       category VARCHAR(100) NOT NULL,
       amount DECIMAL(12,2) NOT NULL,
-      transaction_date DATE NOT NULL
+      transaction_date DATE NOT NULL,
+      user_id VARCHAR(50) NULL
     )
   `);
 
@@ -46,6 +98,20 @@ async function checkDatabase() {
       ". Please compare it with README.md before continuing."
     );
   }
+
+  // Ensure user_id column exists
+  if (!names.has("user_id")) {
+    await pool.query("ALTER TABLE `transaction` ADD COLUMN `user_id` VARCHAR(50) NULL");
+  }
+
+  // 2. Users Table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS \`users\` (
+      id VARCHAR(50) NOT NULL PRIMARY KEY,
+      password_hash VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 }
 
 function validTransaction(body) {
@@ -70,9 +136,103 @@ function validTransaction(body) {
   return null;
 }
 
-app.get("/api/dashboard", async (_req, res) => {
+// ==================== AUTHENTICATION ROUTES ====================
+
+// Register new user (ID must be unique, password complexity enforced)
+app.post("/api/auth/register", async (req, res) => {
+  const { id, password } = req.body || {};
+
+  const idError = validateUserId(id);
+  if (idError) {
+    return res.status(400).json({ error: idError });
+  }
+
+  const passError = validatePassword(password);
+  if (passError) {
+    return res.status(400).json({ error: passError });
+  }
+
+  const cleanId = String(id).trim();
+
   try {
-    const [summaryRows] = await pool.query(`
+    // Check if User ID already exists
+    const [existing] = await pool.query("SELECT id FROM `users` WHERE id = ?", [cleanId]);
+    if (existing.length > 0) {
+      return res.status(409).json({
+        error: "This User ID is already taken. Please choose a different ID or sign in."
+      });
+    }
+
+    const hashed = hashPassword(password);
+    await pool.query("INSERT INTO `users` (id, password_hash) VALUES (?, ?)", [cleanId, hashed]);
+
+    res.status(201).json({
+      message: "Registration successful! Welcome aboard.",
+      user: { id: cleanId }
+    });
+  } catch (error) {
+    console.error("Registration error:", error.message);
+    res.status(500).json({ error: "Failed to create account. Please try again." });
+  }
+});
+
+// Login existing user
+app.post("/api/auth/login", async (req, res) => {
+  const { id, password } = req.body || {};
+  const cleanId = String(id || "").trim();
+
+  if (!cleanId || !password) {
+    return res.status(400).json({ error: "Please enter both User ID and password." });
+  }
+
+  try {
+    const [users] = await pool.query("SELECT id, password_hash FROM `users` WHERE id = ?", [cleanId]);
+    if (users.length === 0) {
+      return res.status(401).json({ error: "Invalid User ID or password. Please verify and try again." });
+    }
+
+    const user = users[0];
+    const passwordMatch = verifyPassword(password, user.password_hash);
+
+    if (!passwordMatch) {
+      return res.status(401).json({ error: "Invalid User ID or password. Please verify and try again." });
+    }
+
+    res.json({
+      message: "Login successful.",
+      user: { id: user.id }
+    });
+  } catch (error) {
+    console.error("Login error:", error.message);
+    res.status(500).json({ error: "Failed to log in. Please try again." });
+  }
+});
+
+// Verify active user session
+app.get("/api/auth/verify", async (req, res) => {
+  const userId = String(req.headers["x-user-id"] || req.query.user_id || "").trim();
+  if (!userId) {
+    return res.status(401).json({ valid: false, error: "No user session provided." });
+  }
+
+  try {
+    const [users] = await pool.query("SELECT id FROM `users` WHERE id = ?", [userId]);
+    if (users.length === 0) {
+      return res.status(401).json({ valid: false, error: "User session expired or invalid." });
+    }
+    res.json({ valid: true, user: { id: users[0].id } });
+  } catch (error) {
+    res.status(500).json({ valid: false, error: "Verification failed." });
+  }
+});
+
+// ==================== DASHBOARD & TRANSACTIONS ====================
+
+app.get("/api/dashboard", async (req, res) => {
+  const userId = String(req.headers["x-user-id"] || req.query.user_id || "").trim();
+
+  try {
+    let summarySql = `
       SELECT
         COALESCE(SUM(CASE WHEN \`type\` = 'Income' THEN amount ELSE 0 END), 0) AS totalIncome,
         COALESCE(SUM(CASE WHEN \`type\` = 'Expense' THEN amount ELSE 0 END), 0) AS totalExpenses,
@@ -82,22 +242,33 @@ app.get("/api/dashboard", async (_req, res) => {
           ELSE 0
         END), 0) AS balance
       FROM \`transaction\`
-    `);
+    `;
 
-    const [categoryRows] = await pool.query(`
+    let categorySql = `
       SELECT category, COALESCE(SUM(amount), 0) AS total
       FROM \`transaction\`
       WHERE \`type\` = 'Expense'
-      GROUP BY category
-      ORDER BY total DESC
-    `);
+    `;
 
-    const [recentRows] = await pool.query(`
+    let recentSql = `
       SELECT id, \`type\`, category, amount, DATE_FORMAT(transaction_date, '%Y-%m-%d') AS transaction_date
       FROM \`transaction\`
-      ORDER BY transaction_date DESC, id DESC
-      LIMIT 1000
-    `);
+    `;
+
+    let params = [];
+    if (userId) {
+      summarySql += " WHERE user_id = ?";
+      categorySql += " AND user_id = ?";
+      recentSql += " WHERE user_id = ?";
+      params = [userId];
+    }
+
+    categorySql += " GROUP BY category ORDER BY total DESC";
+    recentSql += " ORDER BY transaction_date DESC, id DESC LIMIT 1000";
+
+    const [summaryRows] = await pool.query(summarySql, params);
+    const [categoryRows] = await pool.query(categorySql, params);
+    const [recentRows] = await pool.query(recentSql, params);
 
     res.json({
       summary: summaryRows[0],
@@ -118,11 +289,13 @@ app.post("/api/transactions", async (req, res) => {
     return res.status(400).json({ error: validationError });
   }
 
+  const userId = String(req.headers["x-user-id"] || req.body.user_id || "").trim() || null;
+
   try {
     const { type, category, amount, transaction_date } = req.body;
     const [result] = await pool.execute(
-      "INSERT INTO `transaction` (`type`, category, amount, transaction_date) VALUES (?, ?, ?, ?)",
-      [type, category.trim(), Number(amount), transaction_date]
+      "INSERT INTO `transaction` (`type`, category, amount, transaction_date, user_id) VALUES (?, ?, ?, ?, ?)",
+      [type, category.trim(), Number(amount), transaction_date, userId]
     );
     res.status(201).json({ message: "Transaction added.", id: result.insertId });
   } catch (error) {
@@ -137,8 +310,17 @@ app.delete("/api/transactions/:id", async (req, res) => {
     return res.status(400).json({ error: "Invalid transaction ID." });
   }
 
+  const userId = String(req.headers["x-user-id"] || req.query.user_id || "").trim() || null;
+
   try {
-    const [result] = await pool.execute("DELETE FROM `transaction` WHERE id = ?", [id]);
+    let delSql = "DELETE FROM `transaction` WHERE id = ?";
+    let delParams = [id];
+    if (userId) {
+      delSql += " AND (user_id = ? OR user_id IS NULL)";
+      delParams.push(userId);
+    }
+
+    const [result] = await pool.execute(delSql, delParams);
     if (!result.affectedRows) {
       return res.status(404).json({ error: "Transaction not found." });
     }

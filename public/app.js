@@ -2,6 +2,7 @@
  * Expense Tracker - Modern Financial Dashboard
  * Senior Frontend Architecture & UI Engine
  * Features: Complete Weekly, Monthly & Yearly Records & Analytics
+ * Authentication: Unique User ID, Password Complexity & Protected Dashboards
  */
 
 (function () {
@@ -9,14 +10,22 @@
 
   // ==================== STATE MANAGEMENT ====================
   const state = {
+    // Current Logged-in User
+    currentUser: null,
+    authMode: 'login', // 'login' | 'register'
+    isAuthenticating: false,
+
+    // Financial Data
     summary: { totalIncome: 0, totalExpenses: 0, balance: 0 },
     categories: [],
     transactions: [],
+
     // Timeframe & Grouping States
     dashboardPeriod: 'all', // 'all' | 'week' | 'month' | 'year'
     chartGrouping: 'monthly', // 'daily' | 'weekly' | 'monthly' | 'yearly'
     tablePeriodFilter: 'all', // 'all' | 'week' | 'month' | 'year'
     breakdownTab: 'monthly', // 'monthly' | 'weekly' | 'yearly'
+
     // Filter & Pagination State
     searchQuery: '',
     typeFilter: 'all', // 'all' | 'Income' | 'Expense'
@@ -24,8 +33,10 @@
     sortOrder: 'date-desc', // 'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc'
     currentPage: 1,
     pageSize: 8,
+
     // Active View
     currentView: 'dashboard',
+
     // Modal State
     modalType: 'Expense',
     transactionToDelete: null,
@@ -176,6 +187,41 @@
 
   // ==================== DOM ELEMENTS ====================
   const dom = {
+    // Auth Elements
+    authOverlay: document.getElementById('auth-overlay'),
+    authForm: document.getElementById('auth-form'),
+    authTabLogin: document.getElementById('auth-tab-login'),
+    authTabRegister: document.getElementById('auth-tab-register'),
+    authUserIdInput: document.getElementById('auth-user-id'),
+    authPasswordInput: document.getElementById('auth-password'),
+    togglePasswordBtn: document.getElementById('toggle-password-btn'),
+    passwordChecklistBox: document.getElementById('password-checklist-box'),
+    authSubmitBtn: document.getElementById('auth-submit-btn'),
+    authSubmitText: document.getElementById('auth-submit-text'),
+    authSpinner: document.querySelector('.auth-spinner'),
+    authErrorAlert: document.getElementById('auth-error-alert'),
+    authSuccessAlert: document.getElementById('auth-success-alert'),
+    authIdHint: document.getElementById('auth-id-hint'),
+    authIdError: document.getElementById('auth-id-error'),
+    authPasswordError: document.getElementById('auth-password-error'),
+    authSwitchNote: document.getElementById('auth-switch-note'),
+
+    // Password Checklist Items
+    reqLength: document.getElementById('req-length'),
+    reqUppercase: document.getElementById('req-uppercase'),
+    reqLowercase: document.getElementById('req-lowercase'),
+    reqNumber: document.getElementById('req-number'),
+    reqSpecial: document.getElementById('req-special'),
+
+    // User Profile Display
+    sidebarUserAvatar: document.getElementById('sidebar-user-avatar'),
+    sidebarUserName: document.getElementById('sidebar-user-name'),
+    sidebarUserRole: document.getElementById('sidebar-user-role'),
+    logoutBtn: document.getElementById('logout-btn'),
+    topbarUserAvatar: document.getElementById('topbar-user-avatar'),
+    topbarUserName: document.getElementById('topbar-user-name'),
+    topbarLogoutBtn: document.getElementById('topbar-logout-btn'),
+
     // Stat Elements
     totalIncome: document.getElementById('total-income-value'),
     totalExpenses: document.getElementById('total-expenses-value'),
@@ -347,8 +393,221 @@
     setTimeout(dismiss, 4000);
   }
 
+  // ==================== AUTHENTICATION LOGIC ====================
+  function initAuth() {
+    try {
+      const stored = localStorage.getItem('expense_tracker_user');
+      if (stored) {
+        state.currentUser = JSON.parse(stored);
+      }
+    } catch (e) {
+      state.currentUser = null;
+    }
+
+    if (state.currentUser && state.currentUser.id) {
+      dom.authOverlay.classList.add('hidden');
+      updateUserProfileUI(state.currentUser.id);
+      fetchDashboardData();
+    } else {
+      dom.authOverlay.classList.remove('hidden');
+      switchAuthMode('login');
+    }
+  }
+
+  function updateUserProfileUI(userId) {
+    const initials = userId.slice(0, 2).toUpperCase();
+    if (dom.sidebarUserAvatar) dom.sidebarUserAvatar.textContent = initials;
+    if (dom.sidebarUserName) dom.sidebarUserName.textContent = userId;
+    if (dom.sidebarUserRole) dom.sidebarUserRole.textContent = 'Personal Account';
+
+    if (dom.topbarUserAvatar) dom.topbarUserAvatar.textContent = initials;
+    if (dom.topbarUserName) dom.topbarUserName.textContent = userId;
+  }
+
+  function switchAuthMode(mode) {
+    state.authMode = mode;
+    clearAuthAlerts();
+
+    if (mode === 'login') {
+      dom.authTabLogin.classList.add('active');
+      dom.authTabLogin.setAttribute('aria-selected', 'true');
+      dom.authTabRegister.classList.remove('active');
+      dom.authTabRegister.setAttribute('aria-selected', 'false');
+
+      dom.passwordChecklistBox.classList.add('hidden');
+      dom.authSubmitText.textContent = 'Sign In';
+      dom.authIdHint.textContent = 'Enter your unique registered User ID.';
+      dom.authSwitchNote.innerHTML = 'New user? Click <strong>Create Account</strong> above to register.';
+    } else {
+      dom.authTabRegister.classList.add('active');
+      dom.authTabRegister.setAttribute('aria-selected', 'true');
+      dom.authTabLogin.classList.remove('active');
+      dom.authTabLogin.setAttribute('aria-selected', 'false');
+
+      dom.passwordChecklistBox.classList.remove('hidden');
+      dom.authSubmitText.textContent = 'Create Account';
+      dom.authIdHint.textContent = 'Choose a unique User ID (3–50 characters, letters & numbers).';
+      dom.authSwitchNote.innerHTML = 'Already have an account? Click <strong>Sign In</strong> above to log in.';
+      validatePasswordLive(dom.authPasswordInput.value || '');
+    }
+  }
+
+  function clearAuthAlerts() {
+    dom.authErrorAlert.classList.add('hidden');
+    dom.authErrorAlert.textContent = '';
+    dom.authSuccessAlert.classList.add('hidden');
+    dom.authSuccessAlert.textContent = '';
+    dom.authIdError.classList.add('hidden');
+    dom.authPasswordError.classList.add('hidden');
+  }
+
+  function validatePasswordLive(password) {
+    const checks = {
+      length: password.length >= 8,
+      uppercase: /[A-Z]/.test(password),
+      lowercase: /[a-z]/.test(password),
+      number: /[0-9]/.test(password),
+      special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(password)
+    };
+
+    updateCheckItem(dom.reqLength, checks.length);
+    updateCheckItem(dom.reqUppercase, checks.uppercase);
+    updateCheckItem(dom.reqLowercase, checks.lowercase);
+    updateCheckItem(dom.reqNumber, checks.number);
+    updateCheckItem(dom.reqSpecial, checks.special);
+
+    return Object.values(checks).every(Boolean);
+  }
+
+  function updateCheckItem(itemEl, isValid) {
+    if (!itemEl) return;
+    const bullet = itemEl.querySelector('.req-bullet');
+    if (isValid) {
+      itemEl.className = 'req-item valid';
+      if (bullet) bullet.textContent = '✓';
+    } else {
+      itemEl.className = 'req-item invalid';
+      if (bullet) bullet.textContent = '✕';
+    }
+  }
+
+  async function handleAuthSubmit(e) {
+    e.preventDefault();
+    if (state.isAuthenticating) return;
+
+    clearAuthAlerts();
+    const id = dom.authUserIdInput.value.trim();
+    const password = dom.authPasswordInput.value;
+
+    if (!id || id.length < 3 || id.length > 50) {
+      dom.authIdError.textContent = 'User ID must be between 3 and 50 characters.';
+      dom.authIdError.classList.remove('hidden');
+      dom.authUserIdInput.focus();
+      return;
+    }
+
+    if (!/^[A-Za-z0-9_.-]+$/.test(id)) {
+      dom.authIdError.textContent = 'User ID can only contain letters, numbers, dots, hyphens, and underscores.';
+      dom.authIdError.classList.remove('hidden');
+      dom.authUserIdInput.focus();
+      return;
+    }
+
+    if (!password) {
+      dom.authPasswordError.textContent = 'Password is required.';
+      dom.authPasswordError.classList.remove('hidden');
+      dom.authPasswordInput.focus();
+      return;
+    }
+
+    if (state.authMode === 'register') {
+      const isStrong = validatePasswordLive(password);
+      if (!isStrong) {
+        dom.authPasswordError.textContent = 'Please fulfill all password requirements below.';
+        dom.authPasswordError.classList.remove('hidden');
+        dom.authPasswordInput.focus();
+        return;
+      }
+    }
+
+    setAuthLoading(true);
+
+    const endpoint = state.authMode === 'register' ? '/api/auth/register' : '/api/auth/login';
+
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, password })
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Authentication failed. Please check your credentials.');
+      }
+
+      state.currentUser = data.user;
+      localStorage.setItem('expense_tracker_user', JSON.stringify(data.user));
+
+      showToast(
+        state.authMode === 'register' ? 'Account Created!' : 'Welcome Back!',
+        `Logged in as ${data.user.id}`,
+        'success'
+      );
+
+      dom.authOverlay.classList.add('hidden');
+      dom.authForm.reset();
+      updateUserProfileUI(data.user.id);
+      await fetchDashboardData();
+    } catch (err) {
+      dom.authErrorAlert.textContent = err.message;
+      dom.authErrorAlert.classList.remove('hidden');
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
+  function setAuthLoading(isLoading) {
+    state.isAuthenticating = isLoading;
+    dom.authSubmitBtn.disabled = isLoading;
+    if (isLoading) {
+      dom.authSpinner.classList.remove('hidden');
+      dom.authSubmitText.textContent = state.authMode === 'register' ? 'Creating Account…' : 'Signing In…';
+    } else {
+      dom.authSpinner.classList.add('hidden');
+      dom.authSubmitText.textContent = state.authMode === 'register' ? 'Create Account' : 'Sign In';
+    }
+  }
+
+  function logout() {
+    state.currentUser = null;
+    localStorage.removeItem('expense_tracker_user');
+
+    // Reset data
+    state.summary = { totalIncome: 0, totalExpenses: 0, balance: 0 };
+    state.categories = [];
+    state.transactions = [];
+
+    // Reset form inputs
+    dom.authForm.reset();
+    clearAuthAlerts();
+    switchAuthMode('login');
+    dom.authOverlay.classList.remove('hidden');
+
+    showToast('Signed Out', 'You have been logged out successfully.', 'info');
+  }
+
+  function getAuthHeaders(extraHeaders = {}) {
+    const headers = { ...extraHeaders };
+    if (state.currentUser && state.currentUser.id) {
+      headers['X-User-Id'] = state.currentUser.id;
+    }
+    return headers;
+  }
+
   // ==================== NUMBER ANIMATION HELPER ====================
-  function animateValue(element, start, end, duration = 800, isCurrency = true) {
+  function animateValue(element, start, end, duration = 600, isCurrency = true) {
     if (!element) return;
     const startTime = performance.now();
     const diff = end - start;
@@ -381,10 +640,12 @@
 
   // ==================== API WORKFLOWS ====================
   async function fetchDashboardData() {
+    if (!state.currentUser) return;
+
     try {
       if (dom.refreshIcon) dom.refreshIcon.classList.add('spin');
       const response = await fetch('/api/dashboard', {
-        headers: { 'Accept': 'application/json' }
+        headers: getAuthHeaders({ 'Accept': 'application/json' })
       });
 
       if (!response.ok) {
@@ -898,7 +1159,6 @@
       }
     });
 
-    // Populate category pills list below chart
     dom.categorySummaryList.innerHTML = state.categories.map((c, index) => {
       const color = chartColors[index % chartColors.length];
       return `
@@ -1063,7 +1323,7 @@
     tbody.innerHTML = rowsHTML;
   }
 
-  // ==================== MODAL LOGIC & FORM VALIDATION ====================
+  // ==================== ADD TRANSACTION MODAL ====================
   function openAddModal(defaultType = 'Expense') {
     state.modalType = defaultType;
     updateModalTypeUI();
@@ -1120,21 +1380,18 @@
     clearFormErrors();
     let isValid = true;
 
-    // Category validation
     const category = dom.categoryInput.value.trim();
     if (!category || category.length > 100) {
       dom.categoryError.classList.remove('hidden');
       isValid = false;
     }
 
-    // Amount validation
     const amountVal = Number(dom.amountInput.value);
     if (!Number.isFinite(amountVal) || amountVal <= 0 || amountVal > 9999999999) {
       dom.amountError.classList.remove('hidden');
       isValid = false;
     }
 
-    // Date validation (YYYY-MM-DD)
     const dateVal = dom.dateInput.value;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateVal) || isNaN(Date.parse(dateVal + 'T00:00:00Z'))) {
       dom.dateError.classList.remove('hidden');
@@ -1164,7 +1421,7 @@
     try {
       const response = await fetch('/api/transactions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload)
       });
 
@@ -1198,7 +1455,7 @@
     }
   }
 
-  // ==================== DELETE MODAL LOGIC ====================
+  // ==================== DELETE TRANSACTION MODAL ====================
   function openDeleteModal(transaction) {
     state.transactionToDelete = transaction;
     const isIncome = transaction.type === 'Income';
@@ -1232,7 +1489,8 @@
 
     try {
       const response = await fetch(`/api/transactions/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: getAuthHeaders()
       });
 
       const resData = await response.json().catch(() => ({}));
@@ -1258,7 +1516,6 @@
   function switchView(viewName) {
     state.currentView = viewName;
 
-    // Update Navigation links
     dom.navItems.forEach(item => {
       const v = item.dataset.view;
       if (v === viewName) {
@@ -1268,7 +1525,6 @@
       }
     });
 
-    // Update Breadcrumb & Title
     if (viewName === 'dashboard') {
       dom.breadcrumbCurrent.textContent = 'Dashboard';
       dom.pageTitle.textContent = 'Financial Overview';
@@ -1316,10 +1572,40 @@
 
   // ==================== EVENT LISTENERS ====================
   function setupEventListeners() {
+    // Auth Form Tabs
+    dom.authTabLogin.addEventListener('click', () => switchAuthMode('login'));
+    dom.authTabRegister.addEventListener('click', () => switchAuthMode('register'));
+
+    // Toggle Password Visibility
+    dom.togglePasswordBtn.addEventListener('click', () => {
+      const type = dom.authPasswordInput.type === 'password' ? 'text' : 'password';
+      dom.authPasswordInput.type = type;
+      dom.togglePasswordBtn.style.color = type === 'text' ? 'var(--primary)' : 'var(--slate-400)';
+    });
+
+    // Live Password Strength Checking (on input)
+    dom.authPasswordInput.addEventListener('input', () => {
+      if (state.authMode === 'register') {
+        validatePasswordLive(dom.authPasswordInput.value);
+      }
+      dom.authPasswordError.classList.add('hidden');
+    });
+
+    dom.authUserIdInput.addEventListener('input', () => {
+      dom.authIdError.classList.add('hidden');
+    });
+
+    // Auth Form Submit
+    dom.authForm.addEventListener('submit', handleAuthSubmit);
+
+    // Logout Buttons (Sidebar + Topbar)
+    dom.logoutBtn?.addEventListener('click', logout);
+    dom.topbarLogoutBtn?.addEventListener('click', logout);
+
     // Refresh button
     dom.refreshBtn.addEventListener('click', fetchDashboardData);
 
-    // Dashboard Timeframe Selector Buttons (All Time / This Week / This Month / This Year)
+    // Dashboard Timeframe Selector Buttons
     dom.dashboardPeriodBtns.forEach(btn => {
       btn.addEventListener('click', () => {
         dom.dashboardPeriodBtns.forEach(b => {
@@ -1343,7 +1629,7 @@
       });
     });
 
-    // Periodic Breakdown Tab Switcher in Analytics (Monthly / Weekly / Yearly)
+    // Periodic Breakdown Tab Switcher in Analytics
     dom.breakdownTabBtns.forEach(btn => {
       btn.addEventListener('click', () => {
         dom.breakdownTabBtns.forEach(b => b.classList.remove('active'));
@@ -1439,7 +1725,7 @@
       renderTransactionsTable();
     });
 
-    // Table Timeframe Period Filter (All / Week / Month / Year)
+    // Table Timeframe Period Filter
     if (dom.tablePeriodFilter) {
       dom.tablePeriodFilter.addEventListener('change', () => {
         state.tablePeriodFilter = dom.tablePeriodFilter.value;
@@ -1510,7 +1796,7 @@
   function init() {
     initLiveDate();
     setupEventListeners();
-    fetchDashboardData();
+    initAuth();
   }
 
   // Start application once DOM is fully loaded
